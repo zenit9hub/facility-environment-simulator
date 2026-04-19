@@ -1,0 +1,428 @@
+[
+    {
+        "id": "sheet2_tab",
+        "type": "tab",
+        "label": "시트2. 룰 엔진",
+        "disabled": false,
+        "info": "state/current 최신 상태 스냅샷과 ops/recommendation을 함께 읽어 최종 판단과 설비 제어를 수행하는 시트"
+    },
+    {
+        "id": "sheet2_group_setup",
+        "type": "group",
+        "z": "sheet2_tab",
+        "name": "mqtt in 2개 topic을 수정 하세요.",
+        "style": {
+            "label": true,
+            "fill": "#FFF3B0",
+            "fill-opacity": "0.45",
+            "stroke": "#C9A227"
+        },
+        "nodes": [
+            "sheet2_mqtt_in_state",
+            "sheet2_mqtt_in_ops"
+        ],
+        "x": 34,
+        "y": 99,
+        "w": 232,
+        "h": 142
+    },
+    {
+        "id": "sheet2_group_process",
+        "type": "group",
+        "z": "sheet2_tab",
+        "name": "처리 박스 | 입력 정규화 + state 저장 + ops 저장 + 룰 평가",
+        "style": {
+            "label": true,
+            "fill": "#D9F2E6",
+            "fill-opacity": "0.38",
+            "stroke": "#3F8F5F"
+        },
+        "nodes": [
+            "sheet2_json_parse",
+            "sheet2_debug_raw",
+            "sheet2_switch_topic",
+            "sheet2_change_state",
+            "sheet2_change_ops",
+            "sheet2_func_evaluate"
+        ],
+        "x": 294,
+        "y": 99,
+        "w": 992,
+        "h": 162
+    },
+    {
+        "id": "sheet2_group_output",
+        "type": "group",
+        "z": "sheet2_tab",
+        "name": "출력 박스 | rule/result + actuator control + 룰 평가 요약 확인",
+        "style": {
+            "label": true,
+            "fill": "#DDEBFF",
+            "fill-opacity": "0.38",
+            "stroke": "#5E88C7"
+        },
+        "nodes": [
+            "sheet2_mqtt_out_rule",
+            "sheet2_debug_rule",
+            "sheet2_mqtt_out_conveyor",
+            "sheet2_debug_conveyor",
+            "sheet2_mqtt_out_aircon",
+            "sheet2_debug_aircon",
+            "sheet2_debug_eval"
+        ],
+        "x": 1334,
+        "y": 19,
+        "w": 361,
+        "h": 382
+    },
+    {
+        "id": "sheet2_mqtt_in_state",
+        "type": "mqtt in",
+        "z": "sheet2_tab",
+        "g": "sheet2_group_setup",
+        "name": "1) state/current 구독",
+        "topic": "kiot/zenit/dt/factory/room-01/state/current",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "sheet2_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 140,
+        "wires": [
+            [
+                "sheet2_json_parse"
+            ]
+        ]
+    },
+    {
+        "id": "sheet2_mqtt_in_ops",
+        "type": "mqtt in",
+        "z": "sheet2_tab",
+        "g": "sheet2_group_setup",
+        "name": "2) ops 권고 구독",
+        "topic": "kiot/zenit/dt/factory/room-01/ops/recommendation",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "sheet2_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 160,
+        "y": 200,
+        "wires": [
+            [
+                "sheet2_json_parse"
+            ]
+        ]
+    },
+    {
+        "id": "sheet2_json_parse",
+        "type": "json",
+        "z": "sheet2_tab",
+        "g": "sheet2_group_process",
+        "name": "JSON 파싱",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 390,
+        "y": 180,
+        "wires": [
+            [
+                "sheet2_debug_raw",
+                "sheet2_switch_topic"
+            ]
+        ]
+    },
+    {
+        "id": "sheet2_debug_raw",
+        "type": "debug",
+        "z": "sheet2_tab",
+        "g": "sheet2_group_process",
+        "name": "룰 엔진 원본 입력 확인",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 600,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "sheet2_switch_topic",
+        "type": "switch",
+        "z": "sheet2_tab",
+        "g": "sheet2_group_process",
+        "name": "입력 종류 분기",
+        "property": "topic",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "cont",
+                "v": "/state/current",
+                "vt": "str"
+            },
+            {
+                "t": "cont",
+                "v": "/ops/recommendation",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 2,
+        "x": 570,
+        "y": 200,
+        "wires": [
+            [
+                "sheet2_change_state"
+            ],
+            [
+                "sheet2_change_ops"
+            ]
+        ]
+    },
+    {
+        "id": "sheet2_change_state",
+        "type": "change",
+        "z": "sheet2_tab",
+        "g": "sheet2_group_process",
+        "name": "sourceType=state-current",
+        "rules": [
+            {
+                "t": "set",
+                "p": "sourceType",
+                "pt": "msg",
+                "to": "state-current",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 770,
+        "y": 180,
+        "wires": [
+            [
+                "sheet2_func_evaluate"
+            ]
+        ]
+    },
+    {
+        "id": "sheet2_change_ops",
+        "type": "change",
+        "z": "sheet2_tab",
+        "g": "sheet2_group_process",
+        "name": "sourceType=ops-recommendation",
+        "rules": [
+            {
+                "t": "set",
+                "p": "sourceType",
+                "pt": "msg",
+                "to": "ops-recommendation",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 800,
+        "y": 220,
+        "wires": [
+            [
+                "sheet2_func_evaluate"
+            ]
+        ]
+    },
+    {
+        "id": "sheet2_func_evaluate",
+        "type": "function",
+        "z": "sheet2_tab",
+        "g": "sheet2_group_process",
+        "name": "정규화 + state 저장 + ops 저장 + 룰 평가",
+        "func": "const WARNING_TEMP = 35;\nconst CRITICAL_TEMP = 45;\nconst STALE_MS = 30000;\nconst CRITICAL_HOLD_MS = 10000;\nconst sourceType = msg.sourceType || \"unknown\";\n\nfunction ageMs(ts, nowMs) {\n    if (!ts) return null;\n    const parsed = Date.parse(ts);\n    if (Number.isNaN(parsed)) return null;\n    return nowMs - parsed;\n}\n\nfunction normalizePayload(payload) {\n    if (typeof payload === \"string\") {\n        try {\n            return JSON.parse(payload);\n        } catch (error) {\n            return payload;\n        }\n    }\n    return payload;\n}\n\nfunction normalizeOps(payload) {\n    if (!payload) return null;\n    if (typeof payload === \"string\") {\n        return { operationCode: payload };\n    }\n    if (typeof payload.operationCode === \"string\") {\n        return payload;\n    }\n    if (typeof payload.code === \"string\") {\n        return { ...payload, operationCode: payload.code };\n    }\n    return null;\n}\n\nfunction buildControl(topic, power, reason, evaluatedAt) {\n    return {\n        topic,\n        payload: {\n            power,\n            reason,\n            issuedAt: evaluatedAt\n        }\n    };\n}\n\nconst nowMs = Date.now();\nconst evaluatedAt = new Date(nowMs).toISOString();\nlet normalizedPayload = normalizePayload(msg.payload);\nlet debugMsg = {\n    topic: \"sheet2/debug/evaluation\",\n    payload: {\n        evaluatedAt,\n        sourceType,\n        inputTopic: msg.topic || null,\n        payloadType: Array.isArray(normalizedPayload) ? \"array\" : typeof normalizedPayload\n    }\n};\n\nif (sourceType === \"state-current\") {\n    if (!normalizedPayload || typeof normalizedPayload !== \"object\" || Array.isArray(normalizedPayload)) {\n        debugMsg.payload.error = \"state-current payload is not object\";\n        node.status({ fill: \"red\", shape: \"ring\", text: \"state/current payload 오류\" });\n        return [null, null, null, debugMsg];\n    }\n    flow.set(\"sheet2CurrentState\", normalizedPayload);\n} else if (sourceType === \"ops-recommendation\") {\n    const latestOps = normalizeOps(normalizedPayload);\n    if (!latestOps) {\n        debugMsg.payload.error = \"ops recommendation 형식이 올바르지 않음\";\n        node.warn(\"ops recommendation 형식이 올바르지 않습니다.\");\n        return [null, null, null, debugMsg];\n    }\n    latestOps.receivedAt = evaluatedAt;\n    flow.set(\"sheet2LatestOps\", latestOps);\n    debugMsg.payload.storedOpsRecommendation = {\n        operationCode: latestOps.operationCode || null,\n        message: latestOps.message || null,\n        reason: latestOps.reason || null,\n        receivedAt: latestOps.receivedAt\n    };\n    debugMsg.payload.note = \"ops recommendation 저장만 수행; 다음 state/current 입력에서 평가\";\n    node.status({ fill: \"blue\", shape: \"ring\", text: \"ops 저장\" });\n    return [null, null, null, debugMsg];\n} else {\n    debugMsg.payload.error = \"unknown sourceType\";\n    return [null, null, null, debugMsg];\n}\n\nconst currentState = flow.get(\"sheet2CurrentState\");\nconst latestOps = flow.get(\"sheet2LatestOps\") || null;\n\nif (!currentState || !currentState.userId || !currentState.roomId) {\n    debugMsg.payload.error = \"state/current missing in flow context\";\n    node.status({ fill: \"grey\", shape: \"ring\", text: \"state/current 대기중\" });\n    return [null, null, null, debugMsg];\n}\n\nconst userId = currentState.userId;\nconst roomId = currentState.roomId;\nconst temperature = currentState.sensors?.temperature || null;\nconst vibration = currentState.sensors?.vibration || null;\nconst conveyorBelt = currentState.actuators?.conveyorBelt || null;\nconst aircon = currentState.actuators?.aircon || null;\n\nconst freshness = {\n    temperatureAgeMs: ageMs(temperature?.updatedAt, nowMs),\n    vibrationAgeMs: ageMs(vibration?.updatedAt, nowMs),\n    conveyorBeltAgeMs: ageMs(conveyorBelt?.updatedAt, nowMs),\n    airconAgeMs: ageMs(aircon?.updatedAt, nowMs)\n};\n\nconst definedAges = Object.values(freshness).filter(v => Number.isFinite(v));\nconst maxAgeMs = definedAges.length ? Math.max(...definedAges) : null;\nconst completeness = currentState.completeness || \"partial\";\nconst isFresh = completeness === \"ready\" && maxAgeMs !== null && maxAgeMs <= STALE_MS;\n\nlet riskLevel = \"unknown\";\nlet ruleState = \"hold\";\nlet reason = \"state-not-ready\";\nlet criticalSince = flow.get(\"sheet2CriticalSince\") || null;\n\nif (!temperature || typeof temperature.value !== \"number\") {\n    riskLevel = \"unknown\";\n    ruleState = \"hold\";\n    reason = \"temperature-missing\";\n    criticalSince = null;\n} else if (!isFresh) {\n    riskLevel = \"unknown\";\n    ruleState = \"hold\";\n    reason = completeness !== \"ready\" ? \"partial-state\" : \"stale-state\";\n    criticalSince = null;\n} else if (temperature.value >= CRITICAL_TEMP) {\n    riskLevel = \"critical\";\n    if (!criticalSince) {\n        criticalSince = evaluatedAt;\n    }\n    const criticalHeldMs = nowMs - Date.parse(criticalSince);\n    if (latestOps?.operationCode === \"recommend-to-stop\") {\n        ruleState = \"stop\";\n        reason = \"ops-stop-on-critical\";\n    } else if (criticalHeldMs >= CRITICAL_HOLD_MS) {\n        ruleState = \"stop\";\n        reason = \"critical-held-10s\";\n    } else {\n        ruleState = \"cooling\";\n        reason = \"critical-detected\";\n    }\n} else if (temperature.value >= WARNING_TEMP) {\n    riskLevel = \"warning\";\n    criticalSince = null;\n    if (latestOps?.operationCode === \"recommend-to-stop\") {\n        ruleState = \"stop\";\n        reason = \"ops-stop-on-warning\";\n    } else {\n        ruleState = \"cooling\";\n        reason = \"warning-detected\";\n    }\n} else {\n    riskLevel = \"normal\";\n    criticalSince = null;\n    if (latestOps?.operationCode === \"recommend-to-monitor\") {\n        ruleState = \"monitor\";\n        reason = \"ops-monitor-on-normal\";\n    } else {\n        ruleState = \"normal\";\n        reason = \"temperature-normal\";\n    }\n}\n\nflow.set(\"sheet2CriticalSince\", criticalSince);\n\nconst actualConveyorPower = conveyorBelt?.power ?? null;\nconst actualAirconPower = aircon?.power ?? null;\nconst ruleResultMsg = {\n    topic: `kiot/${userId}/dt/factory/${roomId}/rule/result`,\n    payload: {\n        userId,\n        roomId,\n        evaluatedAt,\n        riskLevel,\n        ruleState,\n        reason,\n        thresholds: {\n            warningTemp: WARNING_TEMP,\n            criticalTemp: CRITICAL_TEMP,\n            staleMs: STALE_MS,\n            criticalHoldMs: CRITICAL_HOLD_MS\n        },\n        latestOpsRecommendation: latestOps ? {\n            operationCode: latestOps.operationCode || null,\n            receivedAt: latestOps.receivedAt || null,\n            message: latestOps.message || null,\n            reason: latestOps.reason || null\n        } : null,\n        snapshotMeta: {\n            completeness,\n            latestUpdatedAt: currentState.latestUpdatedAt || null,\n            maxAgeMs,\n            freshness,\n            lastSourceType: currentState.lastSourceType || null,\n            criticalSince\n        },\n        stateSummary: {\n            temperature: temperature?.value ?? null,\n            vibration: vibration?.value ?? null,\n            conveyorPower: actualConveyorPower,\n            airconPower: actualAirconPower,\n            conveyorOverheatMode: conveyorBelt?.overheatMode ?? null\n        }\n    }\n};\n\nlet conveyorMsg = null;\nlet airconMsg = null;\n\nif ((ruleState === \"cooling\" || ruleState === \"stop\") && actualAirconPower !== \"on\") {\n    airconMsg = buildControl(`kiot/${userId}/factory/${roomId}/actuator/aircon/control`, \"on\", reason, evaluatedAt);\n}\n\nif (ruleState === \"stop\" && actualConveyorPower !== \"off\") {\n    conveyorMsg = buildControl(`kiot/${userId}/factory/${roomId}/actuator/conveyor-belt/control`, \"off\", reason, evaluatedAt);\n}\n\ndebugMsg.payload = {\n    ...debugMsg.payload,\n    userId,\n    roomId,\n    temperature: temperature?.value ?? null,\n    completeness,\n    maxAgeMs,\n    actualAirconPower,\n    actualConveyorPower,\n    actualConveyorOverheatMode: conveyorBelt?.overheatMode ?? null,\n    latestOpsOperationCode: latestOps?.operationCode || null,\n    riskLevel,\n    ruleState,\n    reason,\n    willSendAirconControl: !!airconMsg,\n    willSendConveyorControl: !!conveyorMsg\n};\n\nconst statusColor = ruleState === \"stop\" ? \"red\" : ruleState === \"cooling\" ? \"yellow\" : ruleState === \"hold\" ? \"grey\" : \"green\";\nnode.status({ fill: statusColor, shape: \"dot\", text: `${riskLevel} / ${ruleState}` });\n\nreturn [ruleResultMsg, conveyorMsg, airconMsg, debugMsg];",        "outputs": 4,        "timeout": 0,
+        "noerr": 0,
+        "initialize": "node.status({ fill: \"grey\", shape: \"ring\", text: \"대기중\" });",
+        "finalize": "",
+        "libs": [],
+        "x": 1110,
+        "y": 180,
+        "wires": [
+            [
+                "sheet2_mqtt_out_rule",
+                "sheet2_debug_rule"
+            ],
+            [
+                "sheet2_mqtt_out_conveyor",
+                "sheet2_debug_conveyor"
+            ],
+            [
+                "sheet2_mqtt_out_aircon",
+                "sheet2_debug_aircon"
+            ],
+            [
+                "sheet2_debug_eval"
+            ]
+        ]
+    },
+    {
+        "id": "sheet2_mqtt_out_rule",
+        "type": "mqtt out",
+        "z": "sheet2_tab",
+        "g": "sheet2_group_output",
+        "name": "rule/result 발행",
+        "topic": "",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "sheet2_broker",
+        "x": 1440,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "sheet2_debug_rule",
+        "type": "debug",
+        "z": "sheet2_tab",
+        "g": "sheet2_group_output",
+        "name": "rule/result 확인",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1440,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "sheet2_mqtt_out_conveyor",
+        "type": "mqtt out",
+        "z": "sheet2_tab",
+        "g": "sheet2_group_output",
+        "name": "conveyor control 발행",
+        "topic": "",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "sheet2_broker",
+        "x": 1460,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "sheet2_debug_conveyor",
+        "type": "debug",
+        "z": "sheet2_tab",
+        "g": "sheet2_group_output",
+        "name": "conveyor control 확인",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1460,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "sheet2_mqtt_out_aircon",
+        "type": "mqtt out",
+        "z": "sheet2_tab",
+        "g": "sheet2_group_output",
+        "name": "aircon control 발행",
+        "topic": "",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "sheet2_broker",
+        "x": 1450,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "sheet2_debug_aircon",
+        "type": "debug",
+        "z": "sheet2_tab",
+        "g": "sheet2_group_output",
+        "name": "aircon control 확인",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1450,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "sheet2_debug_eval",
+        "type": "debug",
+        "z": "sheet2_tab",
+        "g": "sheet2_group_output",
+        "name": "룰 평가 요약 확인",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1450,
+        "y": 360,
+        "wires": []
+    },
+    {
+        "id": "sheet2_broker",
+        "type": "mqtt-broker",
+        "name": "sheet2-broker (broker.emqx.io:1883)",
+        "broker": "broker.emqx.io",
+        "port": "1883",
+        "clientid": "",
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "closeTopic": "",
+        "closePayload": "",
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": ""
+    }
+]

@@ -1,0 +1,531 @@
+[
+    {
+        "id": "sheet1_tab",
+        "type": "tab",
+        "label": "시트1. 센서 데이터 수신 및 인리치먼트",
+        "disabled": false,
+        "info": "공장 시뮬레이터의 factory 토픽을 수신하고 dt/factory per-topic으로 즉시 인리치먼트한 뒤, 최신 상태를 10초 주기로 state/current 스냅샷으로 발행하는 시트"
+    },
+    {
+        "id": "sheet1_group_setup",
+        "type": "group",
+        "z": "sheet1_tab",
+        "name": "mqtt in 4개 topic을 수정 하세요.",
+        "style": {
+            "label": true,
+            "fill": "#FFF3B0",
+            "fill-opacity": "0.45",
+            "stroke": "#C9A227"
+        },
+        "nodes": [
+            "sheet1_mqtt_in_temp",
+            "sheet1_mqtt_in_vibration",
+            "sheet1_mqtt_in_conveyor",
+            "sheet1_mqtt_in_aircon"
+        ],
+        "x": 34,
+        "y": 279,
+        "w": 252,
+        "h": 262
+    },
+    {
+        "id": "sheet1_group_process",
+        "type": "group",
+        "z": "sheet1_tab",
+        "name": "처리 박스 | sourceType 분기 -> dt per-topic 즉시 발행 + 최신 상태 버퍼링",
+        "style": {
+            "label": true,
+            "fill": "#D9F2E6",
+            "fill-opacity": "0.38",
+            "stroke": "#3F8F5F"
+        },
+        "nodes": [
+            "sheet1_json_parse",
+            "sheet1_debug_raw",
+            "sheet1_switch_topic",
+            "sheet1_change_temp",
+            "sheet1_change_vibration",
+            "sheet1_change_conveyor",
+            "sheet1_change_aircon",
+            "sheet1_func_enrich",
+            "sheet1_inject_state_tick",
+            "sheet1_func_emit_state"
+        ],
+        "x": 314,
+        "y": 279,
+        "w": 992,
+        "h": 282
+    },
+    {
+        "id": "sheet1_group_output",
+        "type": "group",
+        "z": "sheet1_tab",
+        "name": "출력 박스 | dt/factory 재발행 + 10초 주기 state/current 확인",
+        "style": {
+            "label": true,
+            "fill": "#DDEBFF",
+            "fill-opacity": "0.38",
+            "stroke": "#5E88C7"
+        },
+        "nodes": [
+            "sheet1_mqtt_out",
+            "sheet1_debug_enriched",
+            "sheet1_mqtt_out_state",
+            "sheet1_debug_state_current"
+        ],
+        "x": 1334,
+        "y": 339,
+        "w": 356,
+        "h": 222
+    },
+    {
+        "id": "sheet1_mqtt_in_temp",
+        "type": "mqtt in",
+        "z": "sheet1_tab",
+        "g": "sheet1_group_setup",
+        "name": "1) 온도 토픽 구독",
+        "topic": "kiot/zenit/factory/room-01/sensor/temperature",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "sheet1_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 320,
+        "wires": [
+            [
+                "sheet1_json_parse"
+            ]
+        ]
+    },
+    {
+        "id": "sheet1_mqtt_in_vibration",
+        "type": "mqtt in",
+        "z": "sheet1_tab",
+        "g": "sheet1_group_setup",
+        "name": "2) 진동 토픽 구독",
+        "topic": "kiot/zenit/factory/room-01/sensor/vibration",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "sheet1_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 380,
+        "wires": [
+            [
+                "sheet1_json_parse"
+            ]
+        ]
+    },
+    {
+        "id": "sheet1_mqtt_in_conveyor",
+        "type": "mqtt in",
+        "z": "sheet1_tab",
+        "g": "sheet1_group_setup",
+        "name": "3) 컨베이어 상태 토픽 구독",
+        "topic": "kiot/zenit/factory/room-01/actuator/conveyor-belt/status",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "sheet1_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 160,
+        "y": 440,
+        "wires": [
+            [
+                "sheet1_json_parse"
+            ]
+        ]
+    },
+    {
+        "id": "sheet1_mqtt_in_aircon",
+        "type": "mqtt in",
+        "z": "sheet1_tab",
+        "g": "sheet1_group_setup",
+        "name": "4) 에어컨 상태 토픽 구독",
+        "topic": "kiot/zenit/factory/room-01/actuator/aircon/status",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "sheet1_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 160,
+        "y": 500,
+        "wires": [
+            [
+                "sheet1_json_parse"
+            ]
+        ]
+    },
+    {
+        "id": "sheet1_json_parse",
+        "type": "json",
+        "z": "sheet1_tab",
+        "g": "sheet1_group_process",
+        "name": "JSON 파싱",
+        "property": "payload",
+        "action": "",
+        "pretty": false,
+        "x": 410,
+        "y": 380,
+        "wires": [
+            [
+                "sheet1_debug_raw",
+                "sheet1_switch_topic"
+            ]
+        ]
+    },
+    {
+        "id": "sheet1_debug_raw",
+        "type": "debug",
+        "z": "sheet1_tab",
+        "g": "sheet1_group_process",
+        "name": "원본 수신 데이터 확인",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 590,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "sheet1_switch_topic",
+        "type": "switch",
+        "z": "sheet1_tab",
+        "g": "sheet1_group_process",
+        "name": "sourceType 분기",
+        "property": "topic",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "cont",
+                "v": "/sensor/temperature",
+                "vt": "str"
+            },
+            {
+                "t": "cont",
+                "v": "/sensor/vibration",
+                "vt": "str"
+            },
+            {
+                "t": "cont",
+                "v": "/actuator/conveyor-belt/status",
+                "vt": "str"
+            },
+            {
+                "t": "cont",
+                "v": "/actuator/aircon/status",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 4,
+        "x": 580,
+        "y": 420,
+        "wires": [
+            [
+                "sheet1_change_temp"
+            ],
+            [
+                "sheet1_change_vibration"
+            ],
+            [
+                "sheet1_change_conveyor"
+            ],
+            [
+                "sheet1_change_aircon"
+            ]
+        ]
+    },
+    {
+        "id": "sheet1_change_temp",
+        "type": "change",
+        "z": "sheet1_tab",
+        "g": "sheet1_group_process",
+        "name": "sourceType=temperature",
+        "rules": [
+            {
+                "t": "set",
+                "p": "sourceType",
+                "pt": "msg",
+                "to": "temperature",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 810,
+        "y": 360,
+        "wires": [
+            [
+                "sheet1_func_enrich"
+            ]
+        ]
+    },
+    {
+        "id": "sheet1_change_vibration",
+        "type": "change",
+        "z": "sheet1_tab",
+        "g": "sheet1_group_process",
+        "name": "sourceType=vibration",
+        "rules": [
+            {
+                "t": "set",
+                "p": "sourceType",
+                "pt": "msg",
+                "to": "vibration",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 800,
+        "y": 400,
+        "wires": [
+            [
+                "sheet1_func_enrich"
+            ]
+        ]
+    },
+    {
+        "id": "sheet1_change_conveyor",
+        "type": "change",
+        "z": "sheet1_tab",
+        "g": "sheet1_group_process",
+        "name": "sourceType=conveyor-status",
+        "rules": [
+            {
+                "t": "set",
+                "p": "sourceType",
+                "pt": "msg",
+                "to": "conveyor-status",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 820,
+        "y": 440,
+        "wires": [
+            [
+                "sheet1_func_enrich"
+            ]
+        ]
+    },
+    {
+        "id": "sheet1_change_aircon",
+        "type": "change",
+        "z": "sheet1_tab",
+        "g": "sheet1_group_process",
+        "name": "sourceType=aircon-status",
+        "rules": [
+            {
+                "t": "set",
+                "p": "sourceType",
+                "pt": "msg",
+                "to": "aircon-status",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 810,
+        "y": 480,
+        "wires": [
+            [
+                "sheet1_func_enrich"
+            ]
+        ]
+    },
+    {
+        "id": "sheet1_func_enrich",
+        "type": "function",
+        "z": "sheet1_tab",
+        "g": "sheet1_group_process",
+        "name": "dt 인리치먼트 및 최신 상태 버퍼 저장",
+        "func": "const roomId = \"room-01\";\nconst inputTopic = msg.topic || \"\";\nconst match = inputTopic.match(/^kiot\\/([^/]+)\\/factory\\/room-01\\//);\n\nif (!match) {\n    node.warn(`userId를 추출할 수 없는 토픽: ${inputTopic}`);\n    return null;\n}\n\nconst userId = match[1];\nlet payload = msg.payload;\n\nif (payload === undefined || payload === null) {\n    node.warn(\"payload가 비어 있습니다.\");\n    return null;\n}\n\nif (typeof payload === \"string\") {\n    try {\n        payload = JSON.parse(payload);\n    } catch (error) {\n        payload = { value: payload };\n    }\n}\n\nif (typeof payload !== \"object\" || Array.isArray(payload)) {\n    payload = { value: payload };\n}\n\nconst sourceType = msg.sourceType || \"unknown\";\nconst now = new Date().toISOString();\nconst outputTopic = inputTopic.replace(`/factory/${roomId}/`, `/dt/factory/${roomId}/`);\nconst stateKey = \"sheet1CurrentState\";\n\nconst currentState = flow.get(stateKey) || {\n    userId,\n    roomId,\n    latestUpdatedAt: now,\n    snapshotMode: \"fixed-interval-latest\",\n    lastSourceType: null,\n    sensors: {},\n    actuators: {},\n    inputRevision: 0\n};\n\nconst payloadWithUpdatedAt = {\n    ...payload,\n    updatedAt: now\n};\n\nif (sourceType === \"temperature\") {\n    currentState.sensors.temperature = payloadWithUpdatedAt;\n} else if (sourceType === \"vibration\") {\n    currentState.sensors.vibration = payloadWithUpdatedAt;\n} else if (sourceType === \"conveyor-status\") {\n    currentState.actuators.conveyorBelt = payloadWithUpdatedAt;\n} else if (sourceType === \"aircon-status\") {\n    currentState.actuators.aircon = payloadWithUpdatedAt;\n}\n\ncurrentState.userId = userId;\ncurrentState.roomId = roomId;\ncurrentState.latestUpdatedAt = now;\ncurrentState.snapshotMode = \"fixed-interval-latest\";\ncurrentState.lastSourceType = sourceType;\ncurrentState.received = {\n    temperature: !!currentState.sensors.temperature,\n    vibration: !!currentState.sensors.vibration,\n    conveyorBeltStatus: !!currentState.actuators.conveyorBelt,\n    airconStatus: !!currentState.actuators.aircon\n};\ncurrentState.completeness = Object.values(currentState.received).every(Boolean) ? \"ready\" : \"partial\";\ncurrentState.inputRevision = (currentState.inputRevision || 0) + 1;\nflow.set(stateKey, currentState);\n\nconst perTopicMsg = RED.util.cloneMessage(msg);\nperTopicMsg.topic = outputTopic;\nperTopicMsg.payload = {\n    ...payload,\n    userId,\n    roomId,\n    sourceType,\n    enrichedAt: now,\n    originalTopic: inputTopic\n};\n\nnode.status({ fill: \"green\", shape: \"dot\", text: `${userId} / ${sourceType} 저장 완료` });\nreturn perTopicMsg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "node.status({ fill: \"grey\", shape: \"ring\", text: \"대기중\" });",
+        "finalize": "",
+        "libs": [],
+        "x": 1140,
+        "y": 440,
+        "wires": [
+            [
+                "sheet1_mqtt_out",
+                "sheet1_debug_enriched"
+            ]
+        ]
+    },
+    {
+        "id": "sheet1_inject_state_tick",
+        "type": "inject",
+        "z": "sheet1_tab",
+        "g": "sheet1_group_process",
+        "name": "5) 10초마다 최신 상태 집계 실행",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "10",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "2",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 850,
+        "y": 520,
+        "wires": [
+            [
+                "sheet1_func_emit_state"
+            ]
+        ]
+    },
+    {
+        "id": "sheet1_func_emit_state",
+        "type": "function",
+        "z": "sheet1_tab",
+        "g": "sheet1_group_process",
+        "name": "10초 주기 state/current 생성",
+        "func": "const currentState = flow.get(\"sheet1CurrentState\");\n\nif (!currentState || !currentState.userId || !currentState.roomId) {\n    node.status({ fill: \"grey\", shape: \"ring\", text: \"집계 대기중\" });\n    return null;\n}\n\nconst inputRevision = currentState.inputRevision || 0;\nconst lastPublishedRevision = flow.get(\"sheet1LastPublishedRevision\") || 0;\n\nif (inputRevision === lastPublishedRevision) {\n    node.status({ fill: \"grey\", shape: \"ring\", text: \"새 입력 없음 / 발행 생략\" });\n    return null;\n}\n\nconst observedAt = new Date().toISOString();\nconst completeness = currentState.completeness || \"partial\";\nconst stateMsg = {\n    topic: `kiot/${currentState.userId}/dt/factory/${currentState.roomId}/state/current`,\n    payload: {\n        userId: currentState.userId,\n        roomId: currentState.roomId,\n        observedAt,\n        snapshotMode: \"fixed-interval-latest\",\n        latestUpdatedAt: currentState.latestUpdatedAt || null,\n        lastSourceType: currentState.lastSourceType || null,\n        completeness,\n        received: currentState.received || {\n            temperature: !!currentState.sensors?.temperature,\n            vibration: !!currentState.sensors?.vibration,\n            conveyorBeltStatus: !!currentState.actuators?.conveyorBelt,\n            airconStatus: !!currentState.actuators?.aircon\n        },\n        sensors: currentState.sensors || {},\n        actuators: currentState.actuators || {}\n    }\n};\n\nflow.set(\"sheet1LastPublishedRevision\", inputRevision);\nnode.status({ fill: completeness === \"ready\" ? \"green\" : \"yellow\", shape: \"dot\", text: `10초 집계 발행 / ${completeness}` });\nreturn stateMsg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "node.status({ fill: \"grey\", shape: \"ring\", text: \"집계 대기중\" });",
+        "finalize": "",
+        "libs": [],
+        "x": 1120,
+        "y": 520,
+        "wires": [
+            [
+                "sheet1_mqtt_out_state",
+                "sheet1_debug_state_current"
+            ]
+        ]
+    },
+    {
+        "id": "sheet1_mqtt_out",
+        "type": "mqtt out",
+        "z": "sheet1_tab",
+        "g": "sheet1_group_output",
+        "name": "dt per-topic 발행",
+        "topic": "",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "sheet1_broker",
+        "x": 1440,
+        "y": 420,
+        "wires": []
+    },
+    {
+        "id": "sheet1_debug_enriched",
+        "type": "debug",
+        "z": "sheet1_tab",
+        "g": "sheet1_group_output",
+        "name": "dt per-topic 결과 확인",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1460,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "sheet1_mqtt_out_state",
+        "type": "mqtt out",
+        "z": "sheet1_tab",
+        "g": "sheet1_group_output",
+        "name": "10초 주기 state/current 발행",
+        "topic": "",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "sheet1_broker",
+        "x": 1480,
+        "y": 520,
+        "wires": []
+    },
+    {
+        "id": "sheet1_debug_state_current",
+        "type": "debug",
+        "z": "sheet1_tab",
+        "g": "sheet1_group_output",
+        "name": "10초 주기 state/current 결과",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1480,
+        "y": 480,
+        "wires": []
+    },
+    {
+        "id": "sheet1_broker",
+        "type": "mqtt-broker",
+        "name": "sheet1-broker (broker.emqx.io:1883)",
+        "broker": "broker.emqx.io",
+        "port": "1883",
+        "clientid": "",
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "closeTopic": "",
+        "closePayload": "",
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": ""
+    }
+]

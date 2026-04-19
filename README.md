@@ -1,6 +1,6 @@
 # Facility Environment Simulator
 
-설비환경시뮬레이터를 제로베이스에서 TDD(Test-Driven Development)와 하네스 엔지니어링 방식으로 개발하기 위한 프로젝트다.
+설비환경시뮬레이터를 제로베이스에서 TDD(Test-Driven Development) 방식으로 개발하기 위한 프로젝트다.
 
 ## 목표
 - MQTT 기반 설비/환경 시뮬레이터 구현
@@ -15,27 +15,88 @@
 4. 리팩터링한다.
 5. 기능 단위 완료 시 `npm run verify`로 build + unit + integration을 모두 통과시킨다.
 
-자세한 운영 기준은 아래 문서를 따른다.
+문서는 집중도를 위해 아래 2개만 유지한다.
 
 - `docs/중요_시뮬레이터_개발_전달_명세.md`
-- `docs/TDD_운영사이클.md`
 - `docs/TDD_개발로드맵_학생가이드.md`
-- `docs/하네스엔지니어링_도입전략.md`
-- `docs/실행가이드.md`
-- `docs/외부브로커연동테스트.md`
-- `docs/테스트전략_케이스목록.md`
 
-`.env.example` 파일을 참고해서 `.env`를 생성한 뒤 실행해야 한다.
+## 실행 준비
+```bash
+npm install
+```
+
+`.env.example`을 참고해 `.env`를 만든다.
+
+필수 환경변수:
+- `MQTT_UNIQ_USER_ID`
+
+선택 환경변수:
+- `MQTT_BROKER_URL`
+
+기본 브로커 주소는 `mqtt://broker.emqx.io:1883`이다.
 
 ## 실행 명령
-- `npm install`
-- `npm run build`
-- `npm run dev`
-- `npm start`
-- `npm run test:unit`
-- `npm run test:integration`
-- `npm run test:external`
-- `npm run verify`
+개발 모드:
+```bash
+npm run dev
+```
+
+빌드 후 실행:
+```bash
+npm start
+```
+
+예시:
+```bash
+MQTT_UNIQ_USER_ID=student-01 npm run dev
+```
+
+```bash
+MQTT_UNIQ_USER_ID=student-01 MQTT_BROKER_URL=mqtt://broker.emqx.io:1883 npm run dev
+```
+
+종료는 터미널에서 `Ctrl+C`를 사용한다.
+
+## 테스트 명령
+```bash
+npm run build
+npm run test:unit
+npm run test:integration
+npm run verify
+```
+
+외부 브로커 연동 테스트:
+```bash
+npm run test:external
+```
+
+외부 브로커와 고유 사용자 ID를 지정하는 예시:
+```bash
+EXTERNAL_BROKER_URL=mqtt://broker.emqx.io:1883 \
+EXTERNAL_TEST_UNIQ_USER_ID=manual-run-001 \
+npm run test:external
+```
+
+`npm run verify`는 로컬 검증 게이트이며, `npm run test:external`은 실제 네트워크 환경의 publish/subscribe 경로를 확인하는 연동 테스트다. 외부 브로커 실패는 구현 문제와 브로커/네트워크 환경 문제를 구분해서 해석한다.
+
+## Node-RED Flow
+Node-RED import용 JSON 파일은 아래 위치에서 관리한다.
+
+```text
+node-red/flows/
+```
+
+권장 파일명:
+```text
+node-red/flows/factory-room-01.flow.json
+```
+
+시트별로 분리할 경우:
+```text
+node-red/flows/sheet-01-factory-to-dt.flow.json
+node-red/flows/sheet-02-rule-engine.flow.json
+node-red/flows/sheet-03-ai-ops.flow.json
+```
 
 ## 현재 합의된 핵심 규칙
 - 설계 담당자와의 소통 문서는 `docs/중요_시뮬레이터_개발_전달_명세.md` 1개만 사용한다.
