@@ -1,0 +1,302 @@
+[
+    {
+        "id": "sheet4_tab",
+        "type": "tab",
+        "label": "시트4. AI 에이전트-관리자",
+        "disabled": false,
+        "info": "현장 분석가 메시지를 읽고 운영 권고를 생성하는 mock 기반 최소 실행형 시트"
+    },
+    {
+        "id": "sheet4_group_setup",
+        "type": "group",
+        "z": "sheet4_tab",
+        "name": "mqtt in 1개 topic을 수정 하세요.",
+        "style": {
+            "label": true,
+            "fill": "#FFF3B0",
+            "fill-opacity": "0.45",
+            "stroke": "#C9A227"
+        },
+        "nodes": [
+            "sheet4_mqtt_in_analyst"
+        ],
+        "x": 24,
+        "y": 99,
+        "w": 292,
+        "h": 82
+    },
+    {
+        "id": "sheet4_group_process",
+        "type": "group",
+        "z": "sheet4_tab",
+        "name": "처리 박스 | 관리자 요청 생성",
+        "style": {
+            "label": true,
+            "fill": "#D9F2E6",
+            "fill-opacity": "0.38",
+            "stroke": "#3F8F5F"
+        },
+        "nodes": [
+            "sheet4_json_parse",
+            "sheet4_func_build_request"
+        ],
+        "x": 354,
+        "y": 99,
+        "w": 432,
+        "h": 82
+    },
+    {
+        "id": "sheet4_group_llm",
+        "type": "group",
+        "z": "sheet4_tab",
+        "name": "LLM 박스 | 관리자 mock 슬롯 + 응답 변환",
+        "style": {
+            "label": true,
+            "fill": "#F3E5FF",
+            "fill-opacity": "0.35",
+            "stroke": "#8B5FBF"
+        },
+        "nodes": [
+            "sheet4_func_manager_slot",
+            "sheet4_func_build_outputs"
+        ],
+        "x": 814,
+        "y": 99,
+        "w": 312,
+        "h": 142
+    },
+    {
+        "id": "sheet4_group_output",
+        "type": "group",
+        "z": "sheet4_tab",
+        "name": "출력 박스 | analysis/manager + ops/recommendation 발행",
+        "style": {
+            "label": true,
+            "fill": "#DDEBFF",
+            "fill-opacity": "0.38",
+            "stroke": "#5E88C7"
+        },
+        "nodes": [
+            "sheet4_mqtt_out_manager",
+            "sheet4_mqtt_out_ops",
+            "sheet4_debug_manager",
+            "sheet4_debug_ops"
+        ],
+        "x": 1154,
+        "y": 99,
+        "w": 359,
+        "h": 222
+    },
+    {
+        "id": "sheet4_mqtt_in_analyst",
+        "type": "mqtt in",
+        "z": "sheet4_tab",
+        "g": "sheet4_group_setup",
+        "name": "1) analysis/field-analyst 구독",
+        "topic": "kiot/zenit/dt/factory/room-01/analysis/field-analyst",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "sheet4_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 140,
+        "wires": [
+            [
+                "sheet4_json_parse"
+            ]
+        ]
+    },
+    {
+        "id": "sheet4_json_parse",
+        "type": "json",
+        "z": "sheet4_tab",
+        "g": "sheet4_group_process",
+        "name": "JSON 파싱(항상 object)",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 480,
+        "y": 140,
+        "wires": [
+            [
+                "sheet4_func_build_request"
+            ]
+        ]
+    },
+    {
+        "id": "sheet4_func_build_request",
+        "type": "function",
+        "z": "sheet4_tab",
+        "g": "sheet4_group_process",
+        "name": "관리자 요청 생성",
+        "func": "const analystMessage = msg.payload || null;\nconst managerPersona = 'operations-support-manager';\n\nif (!analystMessage || !analystMessage.message) {\n  node.status({ fill: 'grey', shape: 'ring', text: '현장 분석 메시지 대기중' });\n  return null;\n}\n\nconst userId = analystMessage.userId || 'unknown';\nconst roomId = analystMessage.roomId || 'room-01';\nmsg.payload = {\n  managerRequest: {\n    managerPersona,\n    systemPrompt: [\n      '당신은 스마트팩토리의 운영지원전문 AI 에이전트입니다.',\n      '당신의 역할은 현장 분석가 메시지를 읽고 운영 관점의 권고를 생성하는 것입니다.',\n      '당신은 최종 제어를 직접 수행하지 않고, 짧은 operationCode와 관리자 메시지를 생성합니다.',\n      '가능한 operationCode는 recommend-to-cool-now, recommend-to-stop, recommend-to-monitor 입니다.',\n      'recommend-to-cool-now는 에어컨 조기 가동 권고를 의미합니다.',\n      'recommend-to-stop은 장비 보호 목적의 조기 셧다운 권고를 의미합니다.'\n    ].join(' '),\n    answerFormatGuide: {\n      instruction: 'managerMessage, operationCode, reason을 포함한 JSON object로 답하세요.'\n    },\n    userPrompt: JSON.stringify({\n      task: '운영지원 권고 생성',\n      fieldAnalystMessage: analystMessage\n    }, null, 2)\n  },\n  analystMessage\n};\nmsg.topic = `kiot/${userId}/dt/factory/${roomId}/analysis/manager/_llm-request`;\nnode.status({ fill: 'blue', shape: 'dot', text: '관리자 요청 생성 완료' });\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 680,
+        "y": 140,
+        "wires": [
+            [
+                "sheet4_func_manager_slot"
+            ]
+        ]
+    },
+    {
+        "id": "sheet4_func_manager_slot",
+        "type": "function",
+        "z": "sheet4_tab",
+        "g": "sheet4_group_llm",
+        "name": "관리자 AI 호출 슬롯 (현재 mock)",
+    "func": "const analystMessage = msg.payload?.analystMessage || {};\nconst message = analystMessage.message || '';\nlet operationCode = null;\nlet managerMessage = '현재는 운영 권고를 발행하지 않고 상태만 관찰합니다.';\nlet reason = 'no-action-required';\n\nconst stablePhrases = [\n  '매우 안정적',\n  '안정 범위',\n  '위험 수준은 \\'Normal\\'',\n  '위험 수준은 \"Normal\"',\n  '즉각적인 위험 징후는 발견되지 않았습니다',\n  '현재로서는 즉각적인 위험',\n  '즉시 추가 조치는 필요하지 않습니다'\n];\nconst stopPhrases = [\n  '임계 온도',\n  '40도',\n  '사전 셧다운',\n  '장비 보호 목적',\n  '선제 대응을 서둘러야'\n];\nconst coolPhrases = [\n  '경고 구간',\n  '조기 대응',\n  '냉각 시점을 앞당',\n  '에어컨 가동 시점을 앞당',\n  '즉시 냉각',\n  '냉각을 시작'\n];\n\nconst hasStableSignal = stablePhrases.some(phrase => message.includes(phrase));\nconst shouldStop = !hasStableSignal && stopPhrases.some(phrase => message.includes(phrase));\nconst shouldCool = !hasStableSignal && coolPhrases.some(phrase => message.includes(phrase));\n\nif (shouldStop) {\n  operationCode = 'recommend-to-stop';\n  managerMessage = '장비 보호 목적상 선제 셧다운 권고가 필요합니다.';\n  reason = 'preemptive-stop-near-critical-zone';\n} else if (shouldCool) {\n  operationCode = 'recommend-to-cool-now';\n  managerMessage = '에어컨 가동 시점을 앞당겨 즉시 냉각을 시작하는 것이 좋습니다.';\n  reason = 'early-cooling-recommended';\n}\n\nnode.status({ fill: operationCode ? 'yellow' : 'green', shape: 'dot', text: operationCode || 'no-action' });\nmsg.payload = {\n  llmProvider: 'manager-mock',\n  llmResponse: {\n    managerMessage,\n    operationCode,\n    reason\n  },\n  analystMessage\n};\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 960,
+        "y": 140,
+        "wires": [
+            [
+                "sheet4_func_build_outputs"
+            ]
+        ]
+    },
+    {
+        "id": "sheet4_func_build_outputs",
+        "type": "function",
+        "z": "sheet4_tab",
+        "g": "sheet4_group_llm",
+        "name": "응답 변환 + 발행용 구성",
+    "func": "const payload = msg.payload || {};\nconst response = payload.llmResponse || {};\nconst analystMessage = payload.analystMessage || {};\n\nif (!response.managerMessage) {\n  node.status({ fill: 'red', shape: 'ring', text: '관리자 응답 변환 실패' });\n  return null;\n}\n\nconst userId = analystMessage.userId || 'unknown';\nconst roomId = analystMessage.roomId || 'room-01';\nconst generatedAt = new Date().toISOString();\n\nconst managerMsg = {\n  topic: `kiot/${userId}/dt/factory/${roomId}/analysis/manager`,\n  payload: {\n    userId,\n    roomId,\n    generatedAt,\n    managerPersona: 'operations-support-manager',\n    llmProvider: payload.llmProvider || 'unknown',\n    message: response.managerMessage,\n    operationCode: response.operationCode || null,\n    reason: response.reason || 'manager-mock-generated',\n    basedOnAnalystMessage: analystMessage.message || ''\n  }\n};\n\nlet opsMsg = null;\nif (response.operationCode) {\n  opsMsg = {\n    topic: `kiot/${userId}/dt/factory/${roomId}/ops/recommendation`,\n    payload: {\n      userId,\n      roomId,\n      generatedAt,\n      operationCode: response.operationCode,\n      message: response.managerMessage,\n      reason: response.reason || 'manager-mock-generated'\n    }\n  };\n}\n\nnode.status({ fill: 'green', shape: 'dot', text: opsMsg ? 'manager/ops 발행 준비 완료' : 'manager만 발행' });\nreturn [managerMsg, opsMsg];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1000,
+        "y": 200,
+        "wires": [
+            [
+                "sheet4_mqtt_out_manager",
+                "sheet4_debug_manager"
+            ],
+            [
+                "sheet4_mqtt_out_ops",
+                "sheet4_debug_ops"
+            ]
+        ]
+    },
+    {
+        "id": "sheet4_mqtt_out_manager",
+        "type": "mqtt out",
+        "z": "sheet4_tab",
+        "g": "sheet4_group_output",
+        "name": "analysis/manager 발행",
+        "topic": "",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "sheet4_broker",
+        "x": 1280,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "sheet4_mqtt_out_ops",
+        "type": "mqtt out",
+        "z": "sheet4_tab",
+        "g": "sheet4_group_output",
+        "name": "ops/recommendation 발행",
+        "topic": "",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "sheet4_broker",
+        "x": 1290,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "sheet4_debug_manager",
+        "type": "debug",
+        "z": "sheet4_tab",
+        "g": "sheet4_group_output",
+        "name": "관리자 분석 결과 확인",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1270,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "sheet4_debug_ops",
+        "type": "debug",
+        "z": "sheet4_tab",
+        "g": "sheet4_group_output",
+        "name": "운영 권고 결과 확인",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1270,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "sheet4_broker",
+        "type": "mqtt-broker",
+        "name": "sheet4-broker (broker.emqx.io:1883)",
+        "broker": "broker.emqx.io",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    }
+]

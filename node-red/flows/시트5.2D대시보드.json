@@ -1,0 +1,875 @@
+[
+    {
+        "id": "sheet5_tab",
+        "type": "tab",
+        "label": "시트5. 2D Dashboard",
+        "disabled": false,
+        "info": "state/current와 rule/result를 별도 구독하여 Node-RED Dashboard로 관제하는 시트"
+    },
+    {
+        "id": "sheet5_group_input",
+        "type": "group",
+        "z": "sheet5_tab",
+        "name": "입력 박스 | zenit 토픽을 수강생 ID로 수정",
+        "style": {
+            "label": true,
+            "fill": "#FFF3B0",
+            "fill-opacity": "0.45",
+            "stroke": "#C9A227"
+        },
+        "nodes": [
+            "sheet5_mqtt_in_state",
+            "sheet5_mqtt_in_rule",
+            "sheet5_mqtt_in_field_analyst",
+            "sheet5_mqtt_in_manager",
+            "sheet5_mqtt_in_ops"
+        ],
+        "x": 54,
+        "y": 79,
+        "w": 252,
+        "h": 322
+    },
+    {
+        "id": "sheet5_group_process",
+        "type": "group",
+        "z": "sheet5_tab",
+        "name": "처리 박스 | Dashboard 표시값 변환",
+        "style": {
+            "label": true,
+            "fill": "#D9F2E6",
+            "fill-opacity": "0.38",
+            "stroke": "#3F8F5F"
+        },
+        "nodes": [
+            "sheet5_json_state",
+            "sheet5_json_rule",
+            "sheet5_func_state_to_dashboard",
+            "sheet5_func_rule_to_dashboard",
+            "sheet5_json_field_analyst",
+            "sheet5_json_manager",
+            "sheet5_json_ops",
+            "sheet5_func_field_analyst_to_dashboard",
+            "sheet5_func_manager_to_dashboard",
+            "sheet5_func_ops_to_dashboard"
+        ],
+        "x": 334,
+        "y": 79,
+        "w": 602,
+        "h": 382
+    },
+    {
+        "id": "sheet5_group_debug",
+        "type": "group",
+        "z": "sheet5_tab",
+        "name": "디버그 박스 | 입력 상태 확인",
+        "style": {
+            "label": true,
+            "fill": "#F3E5FF",
+            "fill-opacity": "0.32",
+            "stroke": "#8B5FBF"
+        },
+        "nodes": [
+            "sheet5_debug_state",
+            "sheet5_debug_rule",
+            "sheet5_debug_field_analyst",
+            "sheet5_debug_manager",
+            "sheet5_debug_ops"
+        ],
+        "x": 964,
+        "y": 79,
+        "w": 242,
+        "h": 382
+    },
+    {
+        "id": "sheet5_mqtt_in_state",
+        "type": "mqtt in",
+        "z": "sheet5_tab",
+        "g": "sheet5_group_input",
+        "name": "1) state/current 구독",
+        "topic": "kiot/zenit/dt/factory/room-01/state/current",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "sheet5_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 180,
+        "y": 120,
+        "wires": [
+            [
+                "sheet5_json_state"
+            ]
+        ]
+    },
+    {
+        "id": "sheet5_mqtt_in_rule",
+        "type": "mqtt in",
+        "z": "sheet5_tab",
+        "g": "sheet5_group_input",
+        "name": "2) rule/result 구독",
+        "topic": "kiot/zenit/dt/factory/room-01/rule/result",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "sheet5_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 180,
+        "y": 180,
+        "wires": [
+            [
+                "sheet5_json_rule"
+            ]
+        ]
+    },
+    {
+        "id": "sheet5_json_state",
+        "type": "json",
+        "z": "sheet5_tab",
+        "g": "sheet5_group_process",
+        "name": "state/current JSON 파싱",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 470,
+        "y": 120,
+        "wires": [
+            [
+                "sheet5_func_state_to_dashboard",
+                "sheet5_debug_state"
+            ]
+        ]
+    },
+    {
+        "id": "sheet5_json_rule",
+        "type": "json",
+        "z": "sheet5_tab",
+        "g": "sheet5_group_process",
+        "name": "rule/result JSON 파싱",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 460,
+        "y": 220,
+        "wires": [
+            [
+                "sheet5_func_rule_to_dashboard",
+                "sheet5_debug_rule"
+            ]
+        ]
+    },
+    {
+        "id": "sheet5_func_state_to_dashboard",
+        "type": "function",
+        "z": "sheet5_tab",
+        "g": "sheet5_group_process",
+        "name": "현재 상태 Dashboard 값 변환",
+        "func": "const state = msg.payload || {};\nconst sensors = state.sensors || {};\nconst actuators = state.actuators || {};\nconst temperature = Number(sensors.temperature?.value);\nconst vibration = Number(sensors.vibration?.value);\nconst conveyor = actuators.conveyorBelt || {};\nconst aircon = actuators.aircon || {};\n\nfunction powerLabel(value) {\n    if (value === 'on') return 'ON';\n    if (value === 'off') return 'OFF';\n    return '-';\n}\n\nconst tempMsg = Number.isFinite(temperature) ? { payload: temperature, topic: 'temperature' } : null;\nconst vibrationMsg = Number.isFinite(vibration) ? { payload: vibration, topic: 'vibration' } : null;\nconst conveyorMsg = {\n    payload: `${powerLabel(conveyor.power)} / overheatMode: ${powerLabel(conveyor.overheatMode)}`,\n    topic: 'conveyor-belt'\n};\nconst airconMsg = {\n    payload: powerLabel(aircon.power),\n    topic: 'aircon'\n};\nconst summaryMsg = {\n    payload: `completeness: ${state.completeness || '-'} / latest: ${state.latestUpdatedAt || '-'} / observed: ${state.observedAt || '-'}`,\n    topic: 'state-summary'\n};\n\nnode.status({ fill: state.completeness === 'ready' ? 'green' : 'yellow', shape: 'dot', text: `state/current ${state.completeness || 'unknown'}` });\nreturn [tempMsg, vibrationMsg, conveyorMsg, airconMsg, summaryMsg];",
+        "outputs": 5,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "node.status({ fill: 'grey', shape: 'ring', text: 'state 대기' });",
+        "finalize": "",
+        "libs": [],
+        "x": 760,
+        "y": 120,
+        "wires": [
+            [
+                "sheet5_ui_temp_gauge",
+                "sheet5_ui_temp_chart"
+            ],
+            [
+                "sheet5_ui_vibration_gauge",
+                "sheet5_ui_vibration_chart"
+            ],
+            [
+                "sheet5_ui_conveyor_text"
+            ],
+            [
+                "sheet5_ui_aircon_text"
+            ],
+            [
+                "sheet5_ui_state_summary"
+            ]
+        ]
+    },
+    {
+        "id": "sheet5_func_rule_to_dashboard",
+        "type": "function",
+        "z": "sheet5_tab",
+        "g": "sheet5_group_process",
+        "name": "룰 엔진 Dashboard 값 변환",
+        "func": "const rule = msg.payload || {};\nconst summary = rule.stateSummary || {};\nconst statusMsg = {\n    payload: `risk: ${rule.riskLevel || '-'} / state: ${rule.ruleState || '-'}`,\n    topic: 'rule-status'\n};\nconst reasonMsg = {\n    payload: rule.reason || '-',\n    topic: 'rule-reason'\n};\nconst detailMsg = {\n    payload: `temp: ${summary.temperature ?? '-'} / aircon: ${summary.airconPower || '-'} / conveyor: ${summary.conveyorPower || '-'} / overheatMode: ${summary.conveyorOverheatMode || '-'}`,\n    topic: 'rule-detail'\n};\n\nconst color = rule.ruleState === 'stop' ? 'red' : rule.ruleState === 'cooling' ? 'yellow' : rule.ruleState === 'hold' ? 'grey' : 'green';\nnode.status({ fill: color, shape: 'dot', text: `${rule.riskLevel || 'unknown'} / ${rule.ruleState || 'unknown'}` });\nreturn [statusMsg, reasonMsg, detailMsg];",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "node.status({ fill: 'grey', shape: 'ring', text: 'rule 대기' });",
+        "finalize": "",
+        "libs": [],
+        "x": 750,
+        "y": 220,
+        "wires": [
+            [
+                "sheet5_ui_rule_status"
+            ],
+            [
+                "sheet5_ui_rule_reason"
+            ],
+            [
+                "sheet5_ui_rule_detail"
+            ]
+        ]
+    },
+    {
+        "id": "sheet5_debug_state",
+        "type": "debug",
+        "z": "sheet5_tab",
+        "g": "sheet5_group_debug",
+        "name": "state/current 확인",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1080,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "sheet5_debug_rule",
+        "type": "debug",
+        "z": "sheet5_tab",
+        "g": "sheet5_group_debug",
+        "name": "rule/result 확인",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1070,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "sheet5_ui_temp_gauge",
+        "type": "ui_gauge",
+        "z": "sheet5_tab",
+        "name": "현재 온도",
+        "group": "sheet5_ui_group_current",
+        "order": 1,
+        "width": 6,
+        "height": 4,
+        "gtype": "gage",
+        "title": "현재 온도",
+        "label": "℃",
+        "format": "{{value}}",
+        "min": 20,
+        "max": "50",
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "35",
+        "seg2": "45",
+        "diff": false,
+        "className": "",
+        "x": 1280,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "sheet5_ui_vibration_gauge",
+        "type": "ui_gauge",
+        "z": "sheet5_tab",
+        "name": "현재 진동",
+        "group": "sheet5_ui_group_current",
+        "order": 2,
+        "width": 6,
+        "height": 4,
+        "gtype": "gage",
+        "title": "현재 진동",
+        "label": "",
+        "format": "{{value}}",
+        "min": 0,
+        "max": "5",
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#ca3838"
+        ],
+        "seg1": "2",
+        "seg2": "4",
+        "diff": false,
+        "className": "",
+        "x": 1280,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "sheet5_ui_conveyor_text",
+        "type": "ui_text",
+        "z": "sheet5_tab",
+        "group": "sheet5_ui_group_current",
+        "order": 3,
+        "width": 6,
+        "height": 1,
+        "name": "컨베이어 상태",
+        "label": "컨베이어",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "x": 1290,
+        "y": 420,
+        "wires": []
+    },
+    {
+        "id": "sheet5_ui_aircon_text",
+        "type": "ui_text",
+        "z": "sheet5_tab",
+        "group": "sheet5_ui_group_current",
+        "order": 4,
+        "width": 6,
+        "height": 1,
+        "name": "에어컨 상태",
+        "label": "에어컨",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "x": 1280,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "sheet5_ui_state_summary",
+        "type": "ui_text",
+        "z": "sheet5_tab",
+        "group": "sheet5_ui_group_current",
+        "order": 5,
+        "width": 12,
+        "height": 2,
+        "name": "상태 스냅샷 요약",
+        "label": "state/current",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "x": 1300,
+        "y": 500,
+        "wires": []
+    },
+    {
+        "id": "sheet5_ui_rule_status",
+        "type": "ui_text",
+        "z": "sheet5_tab",
+        "group": "sheet5_ui_group_rule",
+        "order": 1,
+        "width": 12,
+        "height": 1,
+        "name": "룰 상태",
+        "label": "룰 상태",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "x": 1280,
+        "y": 560,
+        "wires": []
+    },
+    {
+        "id": "sheet5_ui_rule_reason",
+        "type": "ui_text",
+        "z": "sheet5_tab",
+        "group": "sheet5_ui_group_rule",
+        "order": 2,
+        "width": 12,
+        "height": 1,
+        "name": "룰 판단 사유",
+        "label": "판단 사유",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "x": 1290,
+        "y": 600,
+        "wires": []
+    },
+    {
+        "id": "sheet5_ui_rule_detail",
+        "type": "ui_text",
+        "z": "sheet5_tab",
+        "group": "sheet5_ui_group_rule",
+        "order": 3,
+        "width": 12,
+        "height": 2,
+        "name": "룰 입력 요약",
+        "label": "입력 요약",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "x": 1280,
+        "y": 640,
+        "wires": []
+    },
+    {
+        "id": "sheet5_ui_temp_chart",
+        "type": "ui_chart",
+        "z": "sheet5_tab",
+        "name": "온도 추이",
+        "group": "sheet5_ui_group_trend",
+        "order": 1,
+        "width": 12,
+        "height": 4,
+        "label": "온도 추이",
+        "chartType": "line",
+        "legend": "false",
+        "xformat": "HH:mm:ss",
+        "interpolate": "linear",
+        "nodata": "state/current 대기중",
+        "dot": false,
+        "ymin": "20",
+        "ymax": "60",
+        "removeOlder": "10",
+        "removeOlderPoints": "",
+        "removeOlderUnit": "60",
+        "cutout": 0,
+        "useOneColor": false,
+        "useUTC": false,
+        "colors": [
+            "#1f77b4",
+            "#aec7e8",
+            "#ff7f0e",
+            "#2ca02c",
+            "#98df8a",
+            "#d62728",
+            "#ff9896",
+            "#9467bd",
+            "#c5b0d5"
+        ],
+        "outputs": 1,
+        "x": 1280,
+        "y": 700,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "sheet5_ui_vibration_chart",
+        "type": "ui_chart",
+        "z": "sheet5_tab",
+        "name": "진동 추이",
+        "group": "sheet5_ui_group_trend",
+        "order": 2,
+        "width": 12,
+        "height": 4,
+        "label": "진동 추이",
+        "chartType": "line",
+        "legend": "false",
+        "xformat": "HH:mm:ss",
+        "interpolate": "linear",
+        "nodata": "state/current 대기중",
+        "dot": false,
+        "ymin": "0",
+        "ymax": "5",
+        "removeOlder": "10",
+        "removeOlderPoints": "",
+        "removeOlderUnit": "60",
+        "cutout": 0,
+        "useOneColor": false,
+        "useUTC": false,
+        "colors": [
+            "#ff7f0e",
+            "#1f77b4",
+            "#2ca02c",
+            "#d62728",
+            "#9467bd",
+            "#8c564b",
+            "#e377c2",
+            "#7f7f7f",
+            "#bcbd22"
+        ],
+        "outputs": 1,
+        "x": 1280,
+        "y": 740,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "sheet5_broker",
+        "type": "mqtt-broker",
+        "name": "sheet5-broker (broker.emqx.io:1883)",
+        "broker": "broker.emqx.io",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "sheet5_ui_tab",
+        "type": "ui_tab",
+        "name": "Factory Digital Twin",
+        "icon": "dashboard",
+        "order": 5,
+        "disabled": false,
+        "hidden": false
+    },
+    {
+        "id": "sheet5_ui_group_current",
+        "type": "ui_group",
+        "name": "현재 상태",
+        "tab": "sheet5_ui_tab",
+        "order": 1,
+        "disp": true,
+        "width": "12",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "sheet5_ui_group_rule",
+        "type": "ui_group",
+        "name": "룰 엔진 판단",
+        "tab": "sheet5_ui_tab",
+        "order": 2,
+        "disp": true,
+        "width": "12",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "sheet5_ui_group_trend",
+        "type": "ui_group",
+        "name": "센서 추이",
+        "tab": "sheet5_ui_tab",
+        "order": 3,
+        "disp": true,
+        "width": "12",
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "sheet5_mqtt_in_field_analyst",
+        "type": "mqtt in",
+        "z": "sheet5_tab",
+        "g": "sheet5_group_input",
+        "name": "3) field-analyst 구독",
+        "topic": "kiot/zenit/dt/factory/room-01/analysis/field-analyst",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "sheet5_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 180,
+        "y": 240,
+        "wires": [
+            [
+                "sheet5_json_field_analyst"
+            ]
+        ]
+    },
+    {
+        "id": "sheet5_mqtt_in_manager",
+        "type": "mqtt in",
+        "z": "sheet5_tab",
+        "g": "sheet5_group_input",
+        "name": "4) manager 구독",
+        "topic": "kiot/zenit/dt/factory/room-01/analysis/manager",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "sheet5_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 300,
+        "wires": [
+            [
+                "sheet5_json_manager"
+            ]
+        ]
+    },
+    {
+        "id": "sheet5_mqtt_in_ops",
+        "type": "mqtt in",
+        "z": "sheet5_tab",
+        "g": "sheet5_group_input",
+        "name": "5) ops/recommendation 구독",
+        "topic": "kiot/zenit/dt/factory/room-01/ops/recommendation",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "sheet5_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 190,
+        "y": 360,
+        "wires": [
+            [
+                "sheet5_json_ops"
+            ]
+        ]
+    },
+    {
+        "id": "sheet5_json_field_analyst",
+        "type": "json",
+        "z": "sheet5_tab",
+        "g": "sheet5_group_process",
+        "name": "field-analyst JSON 파싱",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 470,
+        "y": 300,
+        "wires": [
+            [
+                "sheet5_func_field_analyst_to_dashboard",
+                "sheet5_debug_field_analyst"
+            ]
+        ]
+    },
+    {
+        "id": "sheet5_json_manager",
+        "type": "json",
+        "z": "sheet5_tab",
+        "g": "sheet5_group_process",
+        "name": "manager JSON 파싱",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 450,
+        "y": 360,
+        "wires": [
+            [
+                "sheet5_func_manager_to_dashboard",
+                "sheet5_debug_manager"
+            ]
+        ]
+    },
+    {
+        "id": "sheet5_json_ops",
+        "type": "json",
+        "z": "sheet5_tab",
+        "g": "sheet5_group_process",
+        "name": "ops/recommendation JSON 파싱",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 490,
+        "y": 420,
+        "wires": [
+            [
+                "sheet5_func_ops_to_dashboard",
+                "sheet5_debug_ops"
+            ]
+        ]
+    },
+    {
+        "id": "sheet5_func_field_analyst_to_dashboard",
+        "type": "function",
+        "z": "sheet5_tab",
+        "g": "sheet5_group_process",
+        "name": "현장 분석가 Dashboard 값 변환",
+        "func": "const payload = msg.payload || {};\nconst message = payload.message || '-';\nconst provider = payload.llmProvider || '-';\nmsg.payload = `[${provider}] ${message}`;\nnode.status({ fill: 'blue', shape: 'dot', text: 'field analyst 수신' });\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "node.status({ fill: 'grey', shape: 'ring', text: 'field analyst 대기' });",
+        "finalize": "",
+        "libs": [],
+        "x": 780,
+        "y": 300,
+        "wires": [
+            [
+                "sheet5_ui_field_analyst_text"
+            ]
+        ]
+    },
+    {
+        "id": "sheet5_func_manager_to_dashboard",
+        "type": "function",
+        "z": "sheet5_tab",
+        "g": "sheet5_group_process",
+        "name": "관리자 Dashboard 값 변환",
+        "func": "const payload = msg.payload || {};\nconst operationCode = payload.operationCode || 'no-action';\nconst message = payload.message || '-';\nconst reason = payload.reason || '-';\nmsg.payload = `${operationCode} / ${reason} / ${message}`;\nnode.status({ fill: operationCode === 'no-action' ? 'green' : 'yellow', shape: 'dot', text: operationCode });\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "node.status({ fill: 'grey', shape: 'ring', text: 'manager 대기' });",
+        "finalize": "",
+        "libs": [],
+        "x": 760,
+        "y": 360,
+        "wires": [
+            [
+                "sheet5_ui_manager_text"
+            ]
+        ]
+    },
+    {
+        "id": "sheet5_func_ops_to_dashboard",
+        "type": "function",
+        "z": "sheet5_tab",
+        "g": "sheet5_group_process",
+        "name": "운영 권고 Dashboard 값 변환",
+        "func": "const payload = msg.payload || {};\nconst operationCode = payload.operationCode || '-';\nconst reason = payload.reason || '-';\nconst message = payload.message || '-';\nmsg.payload = `${operationCode} / ${reason} / ${message}`;\nconst color = operationCode === 'recommend-to-stop' ? 'red' : operationCode === 'recommend-to-cool-now' ? 'yellow' : 'blue';\nnode.status({ fill: color, shape: 'dot', text: operationCode });\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "node.status({ fill: 'grey', shape: 'ring', text: 'ops 대기' });",
+        "finalize": "",
+        "libs": [],
+        "x": 760,
+        "y": 420,
+        "wires": [
+            [
+                "sheet5_ui_ops_text"
+            ]
+        ]
+    },
+    {
+        "id": "sheet5_debug_field_analyst",
+        "type": "debug",
+        "z": "sheet5_tab",
+        "g": "sheet5_group_debug",
+        "name": "field-analyst 확인",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1080,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "sheet5_debug_manager",
+        "type": "debug",
+        "z": "sheet5_tab",
+        "g": "sheet5_group_debug",
+        "name": "manager 확인",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1070,
+        "y": 360,
+        "wires": []
+    },
+    {
+        "id": "sheet5_debug_ops",
+        "type": "debug",
+        "z": "sheet5_tab",
+        "g": "sheet5_group_debug",
+        "name": "ops/recommendation 확인",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1090,
+        "y": 420,
+        "wires": []
+    },
+    {
+        "id": "sheet5_ui_field_analyst_text",
+        "type": "ui_text",
+        "z": "sheet5_tab",
+        "group": "sheet5_ui_group_ai",
+        "order": 1,
+        "width": 12,
+        "height": 3,
+        "name": "현장 분석가 메시지",
+        "label": "현장 분석가",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "x": 1300,
+        "y": 800,
+        "wires": []
+    },
+    {
+        "id": "sheet5_ui_manager_text",
+        "type": "ui_text",
+        "z": "sheet5_tab",
+        "group": "sheet5_ui_group_ai",
+        "order": 2,
+        "width": 12,
+        "height": 2,
+        "name": "관리자 메시지",
+        "label": "관리자",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "x": 1280,
+        "y": 840,
+        "wires": []
+    },
+    {
+        "id": "sheet5_ui_ops_text",
+        "type": "ui_text",
+        "z": "sheet5_tab",
+        "group": "sheet5_ui_group_ai",
+        "order": 3,
+        "width": 12,
+        "height": 2,
+        "name": "운영 권고",
+        "label": "운영 권고",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "x": 1280,
+        "y": 880,
+        "wires": []
+    },
+    {
+        "id": "sheet5_ui_group_ai",
+        "type": "ui_group",
+        "name": "AI 분석 및 운영 권고",
+        "tab": "sheet5_ui_tab",
+        "order": 4,
+        "disp": true,
+        "width": "12",
+        "collapse": false,
+        "className": ""
+    }
+]

@@ -93,10 +93,14 @@ node-red/flows/factory-room-01.flow.json
 
 시트별로 분리할 경우:
 ```text
-node-red/flows/sheet-01-factory-to-dt.flow.json
-node-red/flows/sheet-02-rule-engine.flow.json
-node-red/flows/sheet-03-ai-ops.flow.json
+node-red/flows/시트1.센서데이터수신및인리치먼트.json
+node-red/flows/시트2.룰엔진.json
+node-red/flows/시트3.AI에이전트-현장분석가.json
+node-red/flows/시트4.AI에이전트-관리자.json
+node-red/flows/시트5.2D대시보드.json
 ```
+
+AI 에이전트 flow를 사용하는 경우 Node-RED 실행 환경에 `GEMINI_API_KEY`를 설정해야 한다.
 
 ## 현재 합의된 핵심 규칙
 - 설계 담당자와의 소통 문서는 `docs/중요_시뮬레이터_개발_전달_명세.md` 1개만 사용한다.

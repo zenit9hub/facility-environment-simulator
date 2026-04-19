@@ -1,0 +1,381 @@
+[
+    {
+        "id": "sheet3_tab",
+        "type": "tab",
+        "label": "시트3. AI 에이전트-현장 분석가",
+        "disabled": false,
+        "info": "state/current와 rule/result를 함께 읽어 현장 위험 조기 해석용 LLM 요청을 만들고 analysis/field-analyst를 발행하는 시트"
+    },
+    {
+        "id": "sheet3_group_setup",
+        "type": "group",
+        "z": "sheet3_tab",
+        "name": "mqtt in 2개 topic을 수정 하세요.",
+        "style": {
+            "label": true,
+            "fill": "#FFF3B0",
+            "fill-opacity": "0.45",
+            "stroke": "#C9A227"
+        },
+        "nodes": [
+            "sheet3_mqtt_in_state",
+            "sheet3_mqtt_in_rule"
+        ],
+        "x": 54,
+        "y": 99,
+        "w": 232,
+        "h": 142
+    },
+    {
+        "id": "sheet3_group_process",
+        "type": "group",
+        "z": "sheet3_tab",
+        "name": "처리 박스 | latest state 저장 + 현장 분석 요청 생성",
+        "style": {
+            "label": true,
+            "fill": "#D9F2E6",
+            "fill-opacity": "0.38",
+            "stroke": "#3F8F5F"
+        },
+        "nodes": [
+            "sheet3_json_parse",
+            "sheet3_switch_topic",
+            "sheet3_func_store_state",
+            "sheet3_func_build_request"
+        ],
+        "x": 314,
+        "y": 99,
+        "w": 612,
+        "h": 142
+    },
+    {
+        "id": "sheet3_group_llm",
+        "type": "group",
+        "z": "sheet3_tab",
+        "name": "LLM 박스 | Gemini API 연결 + Mock 보관",
+        "style": {
+            "label": true,
+            "fill": "#F3E5FF",
+            "fill-opacity": "0.35",
+            "stroke": "#8B5FBF"
+        },
+        "nodes": [
+            "sheet3_func_gemini_slot",
+            "sheet3_func_prepare_gemini_request",
+            "sheet3_http_gemini_api",
+            "sheet3_func_extract_message"
+        ],
+        "x": 954,
+        "y": 99,
+        "w": 692,
+        "h": 142
+    },
+    {
+        "id": "sheet3_group_output",
+        "type": "group",
+        "z": "sheet3_tab",
+        "name": "출력 박스 | analysis/field-analyst 발행",
+        "style": {
+            "label": true,
+            "fill": "#DDEBFF",
+            "fill-opacity": "0.38",
+            "stroke": "#5E88C7"
+        },
+        "nodes": [
+            "sheet3_mqtt_out_analysis",
+            "sheet3_debug_analysis"
+        ],
+        "x": 1674,
+        "y": 119,
+        "w": 272,
+        "h": 122
+    },
+    {
+        "id": "sheet3_mqtt_in_state",
+        "type": "mqtt in",
+        "z": "sheet3_tab",
+        "g": "sheet3_group_setup",
+        "name": "1) state/current 구독",
+        "topic": "kiot/zenit/dt/factory/room-01/state/current",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "sheet3_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 140,
+        "wires": [
+            [
+                "sheet3_json_parse"
+            ]
+        ]
+    },
+    {
+        "id": "sheet3_mqtt_in_rule",
+        "type": "mqtt in",
+        "z": "sheet3_tab",
+        "g": "sheet3_group_setup",
+        "name": "2) rule/result 구독",
+        "topic": "kiot/zenit/dt/factory/room-01/rule/result",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "sheet3_broker",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 200,
+        "wires": [
+            [
+                "sheet3_json_parse"
+            ]
+        ]
+    },
+    {
+        "id": "sheet3_json_parse",
+        "type": "json",
+        "z": "sheet3_tab",
+        "g": "sheet3_group_process",
+        "name": "JSON 파싱(항상 object)",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 440,
+        "y": 180,
+        "wires": [
+            [
+                "sheet3_switch_topic"
+            ]
+        ]
+    },
+    {
+        "id": "sheet3_switch_topic",
+        "type": "switch",
+        "z": "sheet3_tab",
+        "g": "sheet3_group_process",
+        "name": "입력 종류 분기",
+        "property": "topic",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "cont",
+                "v": "/state/current",
+                "vt": "str"
+            },
+            {
+                "t": "cont",
+                "v": "/rule/result",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 2,
+        "x": 630,
+        "y": 180,
+        "wires": [
+            [
+                "sheet3_func_store_state"
+            ],
+            [
+                "sheet3_func_build_request"
+            ]
+        ]
+    },
+    {
+        "id": "sheet3_func_store_state",
+        "type": "function",
+        "z": "sheet3_tab",
+        "g": "sheet3_group_process",
+        "name": "latest state 저장",
+        "func": "flow.set('sheet3CurrentState', msg.payload);\nnode.status({ fill: 'grey', shape: 'ring', text: 'latest state 저장' });\nreturn null;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 800,
+        "y": 140,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "sheet3_func_build_request",
+        "type": "function",
+        "z": "sheet3_tab",
+        "g": "sheet3_group_process",
+        "name": "현장 분석가 요청 생성",
+        "func": "const currentState = flow.get('sheet3CurrentState') || null;\nconst ruleResult = msg.payload || null;\nconst analystPersona = 'field-risk-early-analyst';\n\nif (!currentState || !ruleResult) {\n  node.status({ fill: 'grey', shape: 'ring', text: 'state/rule 대기중' });\n  return null;\n}\n\nconst userId = currentState.userId || ruleResult.userId || 'unknown';\nconst roomId = currentState.roomId || ruleResult.roomId || 'room-01';\nconst llmRequest = {\n  analystPersona,\n  systemPrompt: [\n    '당신은 스마트팩토리의 현장 위험 조기 해석 담당자입니다.',\n    '당신의 역할은 state/current와 rule/result를 함께 읽고, 룰 엔진보다 더 앞단의 위험 징후를 사람이 이해하기 쉬운 메시지로 정리하는 것입니다.',\n    '당신은 제어 명령을 직접 내리지 않습니다. 현장 전문가 의견 메시지를 생성하세요.',\n    'overheatMode=on, 급격한 온도 상승, 진동 변화, 에어컨 꺼짐 상태, 룰 엔진 warning/critical 진입 여부를 함께 고려하세요.'\n  ].join(' '),\n  answerFormatGuide: {\n    instruction: '현장 전문가 의견 메시지를 중심으로 답하고, 가능하면 message 필드를 포함한 JSON object로 답하세요.'\n  },\n  userPrompt: JSON.stringify({\n    task: '현장 위험 조기 해석 메시지 작성',\n    stateCurrent: currentState,\n    ruleResult\n  }, null, 2),\n  options: {\n    temperature: 0.2\n  }\n};\n\nmsg.topic = `kiot/${userId}/dt/factory/${roomId}/analysis/field-analyst/_llm-request`;\nmsg.payload = {\n  llmRequest,\n  analysisInput: {\n    stateCurrent: currentState,\n    ruleResult\n  }\n};\nnode.status({ fill: 'blue', shape: 'dot', text: '요청 생성 완료' });\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 810,
+        "y": 200,
+        "wires": [
+            [
+                "sheet3_func_gemini_slot"
+            ]
+        ]
+    },
+    {
+        "id": "sheet3_func_gemini_slot",
+        "type": "function",
+        "z": "sheet3_tab",
+        "g": "sheet3_group_llm",
+        "name": "AI Agent (Mock)",
+        "func": "const analysisInput = msg.payload?.analysisInput || {};\nconst currentState = analysisInput.stateCurrent || {};\nconst ruleResult = analysisInput.ruleResult || {};\nconst temperature = currentState.sensors?.temperature?.value ?? null;\nconst conveyorOverheatMode = currentState.actuators?.conveyorBelt?.overheatMode ?? null;\nconst airconPower = currentState.actuators?.aircon?.power ?? null;\nconst ruleRiskLevel = ruleResult.riskLevel || 'unknown';\n\nlet message = '현장은 안정 범위로 보이며 현재 즉시 추가 조치는 필요하지 않습니다.';\nif (conveyorOverheatMode === 'on' && typeof temperature === 'number' && temperature >= 25 && temperature < 35) {\n  message = '과열 모드가 활성화된 상태에서 온도가 빠르게 상승 중입니다. 아직 룰 엔진 경고 구간은 아니지만 조기 대응을 준비해야 합니다.';\n}\nif (ruleRiskLevel === 'warning' || (typeof temperature === 'number' && temperature >= 35)) {\n  message = '온도가 경고 구간에 진입했습니다. 냉각 동작 여부와 온도 상승 추세를 집중 관찰해야 합니다.';\n}\nif (ruleRiskLevel === 'critical' || (typeof temperature === 'number' && temperature >= 40)) {\n  message = '임계 온도에 근접하고 있습니다. 장비 보호 관점에서 관리자 판단과 선제 대응을 서둘러야 합니다.';\n}\nif (airconPower === 'off' && typeof temperature === 'number' && temperature >= 30) {\n  message += ' 현재 에어컨이 꺼져 있으므로 냉각 시점을 앞당길 필요가 있습니다.';\n}\n\nmsg.payload = {\n  llmProvider: 'gemini-mock',\n  llmResponse: {\n    message\n  }\n};\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1160,
+        "y": 140,
+        "wires": [
+            [
+                "sheet3_func_extract_message"
+            ]
+        ]
+    },
+    {
+        "id": "sheet3_func_prepare_gemini_request",
+        "type": "function",
+        "z": "sheet3_tab",
+        "g": "sheet3_group_llm",
+        "name": "Gemini API 요청 준비",
+        "func": "const originalPayload = msg.payload || {};\nconst llmRequest = originalPayload.llmRequest || {};\nconst analysisInput = originalPayload.analysisInput || {};\nconst apiKey = env.get('GEMINI_API_KEY');\nconst model = env.get('GEMINI_API_MODEL') || 'gemini-flash-latest';\nconst endpoint = env.get('GEMINI_API_ENDPOINT') || `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;\n\nif (!apiKey) {\n  node.error('GEMINI_API_KEY 환경변수가 없습니다. Node-RED 실행 전에 export GEMINI_API_KEY를 설정하세요.', msg);\n  node.status({ fill: 'red', shape: 'ring', text: 'GEMINI_API_KEY 없음' });\n  return null;\n}\n\nconst systemPrompt = llmRequest.systemPrompt || '당신은 스마트팩토리의 현장 위험 조기 해석 담당자입니다.';\nconst answerGuide = llmRequest.answerFormatGuide?.instruction || '현장 전문가 의견 메시지를 한국어로 간결하게 작성하세요.';\nconst userPrompt = llmRequest.userPrompt || JSON.stringify(analysisInput, null, 2);\n\nmsg.method = 'POST';\nmsg.url = endpoint;\nmsg.headers = {\n  'Content-Type': 'application/json',\n  'X-goog-api-key': apiKey\n};\nmsg.payload = {\n  systemInstruction: {\n    parts: [{ text: systemPrompt }]\n  },\n  contents: [\n    {\n      role: 'user',\n      parts: [\n        {\n          text: `${answerGuide}\\n\\n${userPrompt}`\n        }\n      ]\n    }\n  ],\n  generationConfig: {\n    temperature: llmRequest.options?.temperature ?? 0.2\n  }\n};\nmsg.llmProvider = 'gemini-api';\nmsg.analysisInput = analysisInput;\nnode.status({ fill: 'blue', shape: 'dot', text: 'Gemini 요청 준비 완료' });\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "node.status({ fill: 'grey', shape: 'ring', text: 'Gemini 대기' });",
+        "finalize": "",
+        "libs": [],
+        "x": 1080,
+        "y": 200,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "sheet3_http_gemini_api",
+        "type": "http request",
+        "z": "sheet3_tab",
+        "g": "sheet3_group_llm",
+        "name": "Gemini API 호출",
+        "method": "use",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 1280,
+        "y": 200,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "sheet3_func_extract_message",
+        "type": "function",
+        "z": "sheet3_tab",
+        "g": "sheet3_group_llm",
+        "name": "응답 메시지 추출 + 발행용 변환",
+        "func": "const payload = msg.payload || {};\n\nif (msg.statusCode && (msg.statusCode < 200 || msg.statusCode >= 300)) {\n  const errorMessage = payload.error?.message || `HTTP ${msg.statusCode}`;\n  node.error(`Gemini API 호출 실패: ${errorMessage}`, msg);\n  node.status({ fill: 'red', shape: 'ring', text: `Gemini 실패 ${msg.statusCode}` });\n  return null;\n}\n\nfunction stripCodeFence(text) {\n  const trimmed = String(text || '').trim();\n  const matched = trimmed.match(/^```(?:json)?\\s*([\\s\\S]*?)\\s*```$/);\n  return matched ? matched[1].trim() : trimmed;\n}\n\nfunction firstGeminiText(response) {\n  const parts = response?.candidates?.[0]?.content?.parts || [];\n  const textPart = parts.find(part => typeof part.text === 'string');\n  return textPart?.text || null;\n}\n\nlet message = null;\nif (typeof payload.llmResponse === 'string') {\n  message = payload.llmResponse;\n} else if (payload.llmResponse && typeof payload.llmResponse.message === 'string') {\n  message = payload.llmResponse.message;\n} else if (typeof payload.content === 'string') {\n  message = payload.content;\n} else {\n  const geminiText = firstGeminiText(payload);\n  if (geminiText) {\n    const stripped = stripCodeFence(geminiText);\n    try {\n      const parsed = JSON.parse(stripped);\n      message = typeof parsed.message === 'string' ? parsed.message : stripped;\n    } catch (error) {\n      message = stripped;\n    }\n  }\n}\n\nif (!message) {\n  node.status({ fill: 'red', shape: 'ring', text: 'LLM 메시지 추출 실패' });\n  return null;\n}\n\nconst requestSource = flow.get('sheet3CurrentState') || {};\nconst userId = requestSource.userId || 'unknown';\nconst roomId = requestSource.roomId || 'room-01';\nmsg.topic = `kiot/${userId}/dt/factory/${roomId}/analysis/field-analyst`;\nmsg.payload = {\n  userId,\n  roomId,\n  generatedAt: new Date().toISOString(),\n  analystPersona: 'field-risk-early-analyst',\n  llmProvider: msg.llmProvider || payload.llmProvider || 'unknown',\n  message\n};\nnode.status({ fill: 'green', shape: 'dot', text: '메시지 발행 준비 완료' });\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1500,
+        "y": 160,
+        "wires": [
+            [
+                "sheet3_mqtt_out_analysis",
+                "sheet3_debug_analysis"
+            ]
+        ]
+    },
+    {
+        "id": "sheet3_mqtt_out_analysis",
+        "type": "mqtt out",
+        "z": "sheet3_tab",
+        "g": "sheet3_group_output",
+        "name": "analysis/field-analyst 발행",
+        "topic": "",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "sheet3_broker",
+        "x": 1810,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "sheet3_debug_analysis",
+        "type": "debug",
+        "z": "sheet3_tab",
+        "g": "sheet3_group_output",
+        "name": "현장 분석 결과 확인",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1790,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "sheet3_broker",
+        "type": "mqtt-broker",
+        "name": "sheet3-broker (broker.emqx.io:1883)",
+        "broker": "broker.emqx.io",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    }
+]

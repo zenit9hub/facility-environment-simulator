@@ -161,14 +161,16 @@
 3. 시뮬레이터 실행 후 Node-RED에서 센서/상태 메시지가 수신되는지 확인한다.
 
 권장 파일명:
-- `node-red/flows/factory-room-01.flow.json`
-- `node-red/flows/sheet-01-factory-to-dt.flow.json`
-- `node-red/flows/sheet-02-rule-engine.flow.json`
-- `node-red/flows/sheet-03-ai-ops.flow.json`
+- `node-red/flows/시트1.센서데이터수신및인리치먼트.json`
+- `node-red/flows/시트2.룰엔진.json`
+- `node-red/flows/시트3.AI에이전트-현장분석가.json`
+- `node-red/flows/시트4.AI에이전트-관리자.json`
+- `node-red/flows/시트5.2D대시보드.json`
 
 완료 기준:
 - Node-RED에서 JSON import 성공
 - `kiot/{uniq-user-id}/factory/room-01/#` 기준 메시지 흐름 확인
+- AI 에이전트 flow 사용 시 Node-RED 실행 환경에 `GEMINI_API_KEY` 설정
 
 ## 4. 운영 안정화 확장 단계
 MVP 이후에는 아래 2단계를 추가로 진행할 수 있다.
