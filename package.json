@@ -1,0 +1,31 @@
+{
+  "name": "facility-environment-simulator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.19.4"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node --env-file=.env --import tsx src/main.ts",
+    "start": "npm run build && node --env-file=.env dist/src/main.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:external": "vitest run --config vitest.external.config.ts",
+    "test:tdd": "vitest tests/unit --watch",
+    "verify": "node ./scripts/verify-feature.mjs"
+  },
+  "dependencies": {
+    "mqtt": "^5.15.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "aedes": "^1.0.2",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.2"
+  }
+}
