@@ -32,6 +32,7 @@ import { calculateNextTemperature } from '../domain/temperatureModel.js';
 
 type SimulatorLogger = (message: string) => void;
 type LogFieldValue = number | string | undefined;
+type ControlSource = 'mqtt' | 'control-panel';
 
 const noopLog: SimulatorLogger = () => {};
 
@@ -53,6 +54,7 @@ export interface FacilityEnvironmentSimulatorOptions {
 }
 
 export interface SimulatorStateSnapshot {
+  connected: boolean;
   conveyorRunning: boolean;
   conveyorOverheatMode: boolean;
   coolingCommandActive: boolean;
@@ -61,6 +63,21 @@ export interface SimulatorStateSnapshot {
   ambientBaselineTemp: number;
   airconMinTemp: number;
   conveyorMaxTemp: number;
+  lastPublishedAt: string | null;
+  lastSensorPublishedAt: string | null;
+}
+
+export interface ConveyorControlCommand {
+  power: boolean;
+  overheatMode?: boolean;
+  reason?: string;
+  source?: ControlSource;
+}
+
+export interface AirconControlCommand {
+  power: boolean;
+  reason?: string;
+  source?: ControlSource;
 }
 
 export class FacilityEnvironmentSimulator {
@@ -97,6 +114,7 @@ export class FacilityEnvironmentSimulator {
     this.topics = buildTopics(options.uniqUserId);
     this.logger = options.log ?? noopLog;
     this.state = {
+      connected: false,
       conveyorRunning: false,
       conveyorOverheatMode: CONVEYOR_OVERHEAT_MODE !== 'off',
       coolingCommandActive: false,
@@ -104,7 +122,9 @@ export class FacilityEnvironmentSimulator {
       vibration: VIBRATION_AT_REST,
       ambientBaselineTemp: options.ambientBaselineTemp ?? AMBIENT_BASELINE_TEMP,
       airconMinTemp: options.airconMinTemp ?? AIRCON_MIN_TEMP,
-      conveyorMaxTemp: options.conveyorMaxTemp ?? CONVEYOR_MAX_TEMP
+      conveyorMaxTemp: options.conveyorMaxTemp ?? CONVEYOR_MAX_TEMP,
+      lastPublishedAt: null,
+      lastSensorPublishedAt: null
     };
   }
 
@@ -115,6 +135,7 @@ export class FacilityEnvironmentSimulator {
 
     const client = await connectClient(this.options.brokerUrl);
     this.client = client;
+    this.state.connected = true;
 
     client.on('message', (topic, payload) => {
       void this.handleControlMessage(topic, payload.toString('utf8')).catch(() => {
@@ -150,10 +171,26 @@ export class FacilityEnvironmentSimulator {
     const client = this.client;
     this.client = null;
     await closeClient(client);
+    this.state.connected = false;
   }
 
   getStateSnapshot(): SimulatorStateSnapshot {
     return { ...this.state };
+  }
+
+  async applyConveyorControl(command: ConveyorControlCommand): Promise<void> {
+    this.logControlAction('conveyor-belt', command);
+    this.state.conveyorRunning = command.power;
+    if (command.overheatMode !== undefined) {
+      this.state.conveyorOverheatMode = command.overheatMode;
+    }
+    await this.publishConveyorStatus();
+  }
+
+  async applyAirconControl(command: AirconControlCommand): Promise<void> {
+    this.logControlAction('aircon', command);
+    this.state.coolingCommandActive = command.power;
+    await this.publishAirconStatus();
   }
 
   async tick(): Promise<void> {
@@ -197,20 +234,12 @@ export class FacilityEnvironmentSimulator {
       const nextState = parseConveyorControlPayload(payload);
 
       if (nextState !== null) {
-        this.logger(
-          formatLogLine('[simulator] control message received.', {
-            target: 'conveyor-belt',
-            power: formatPower(nextState.power),
-            overheatMode:
-              nextState.overheatMode === undefined ? undefined : formatPower(nextState.overheatMode),
-            reason: nextState.reason
-          })
-        );
-        this.state.conveyorRunning = nextState.power;
-        if (nextState.overheatMode !== undefined) {
-          this.state.conveyorOverheatMode = nextState.overheatMode;
-        }
-        await this.publishConveyorStatus();
+        await this.applyConveyorControl({
+          power: nextState.power,
+          ...(nextState.overheatMode === undefined ? {} : { overheatMode: nextState.overheatMode }),
+          ...(nextState.reason === undefined ? {} : { reason: nextState.reason }),
+          source: 'mqtt'
+        });
       }
 
       return;
@@ -220,17 +249,46 @@ export class FacilityEnvironmentSimulator {
       const nextState = parseAirconControlPayload(payload);
 
       if (nextState !== null) {
-        this.logger(
-          formatLogLine('[simulator] control message received.', {
-            target: 'aircon',
-            power: formatPower(nextState.power),
-            reason: nextState.reason
-          })
-        );
-        this.state.coolingCommandActive = nextState.power;
-        await this.publishAirconStatus();
+        await this.applyAirconControl({
+          power: nextState.power,
+          ...(nextState.reason === undefined ? {} : { reason: nextState.reason }),
+          source: 'mqtt'
+        });
       }
     }
+  }
+
+  private logControlAction(
+    target: 'aircon' | 'conveyor-belt',
+    command: AirconControlCommand | ConveyorControlCommand
+  ): void {
+    const source = command.source ?? 'mqtt';
+
+    if (source === 'control-panel') {
+      this.logger(
+        formatLogLine('[simulator] control panel action.', {
+          target,
+          power: formatPower(command.power),
+          overheatMode:
+            'overheatMode' in command && command.overheatMode !== undefined
+              ? formatPower(command.overheatMode)
+              : undefined
+        })
+      );
+      return;
+    }
+
+    this.logger(
+      formatLogLine('[simulator] control message received.', {
+        target,
+        power: formatPower(command.power),
+        overheatMode:
+          'overheatMode' in command && command.overheatMode !== undefined
+            ? formatPower(command.overheatMode)
+            : undefined,
+        reason: command.reason
+      })
+    );
   }
 
   private async publishPeriodicSnapshot(): Promise<void> {
@@ -250,6 +308,7 @@ export class FacilityEnvironmentSimulator {
         roomId: ROOM_ID
       })
     );
+    this.markPublished({ sensorPublished: true });
   }
 
   private async publishConveyorStatus(): Promise<void> {
@@ -261,6 +320,7 @@ export class FacilityEnvironmentSimulator {
 
     const statusMessage = this.createConveyorStatusMessage();
     await publishJson(client, this.topics.conveyorStatusTopic, statusMessage);
+    this.markPublished({ sensorPublished: false });
     this.logger(
       formatLogLine('[simulator] actuator status published immediately.', {
         target: 'conveyor-belt',
@@ -279,6 +339,7 @@ export class FacilityEnvironmentSimulator {
 
     const statusMessage = this.createAirconStatusMessage();
     await publishJson(client, this.topics.airconStatusTopic, statusMessage);
+    this.markPublished({ sensorPublished: false });
     this.logger(
       formatLogLine('[simulator] actuator status published immediately.', {
         target: 'aircon',
@@ -320,6 +381,15 @@ export class FacilityEnvironmentSimulator {
     }
 
     return this.client;
+  }
+
+  private markPublished({ sensorPublished }: { sensorPublished: boolean }): void {
+    const publishedAt = this.now().toISOString();
+    this.state.lastPublishedAt = publishedAt;
+
+    if (sensorPublished) {
+      this.state.lastSensorPublishedAt = publishedAt;
+    }
   }
 }
 

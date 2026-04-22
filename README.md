@@ -18,7 +18,7 @@
 문서는 집중도를 위해 아래 2개만 유지한다.
 
 - `docs/중요_시뮬레이터_개발_전달_명세.md`
-- `docs/TDD_개발로드맵_학생가이드.md`
+- `docs/TDD_개발로드맵_실습가이드.md`
 
 ## 실행 준비
 ```bash
@@ -32,8 +32,12 @@ npm install
 
 선택 환경변수:
 - `MQTT_BROKER_URL`
+- `CONTROL_PANEL_ENABLED`
+- `CONTROL_PANEL_PORT`
+- `CONTROL_PANEL_AUTO_OPEN`
 
 기본 브로커 주소는 `mqtt://broker.emqx.io:1883`이다.
+원격 조정 패널은 기본적으로 `http://localhost:3000`에서 실행되고 자동으로 열린다.
 
 ## 실행 명령
 개발 모드:
@@ -56,6 +60,26 @@ MQTT_UNIQ_USER_ID=student-01 MQTT_BROKER_URL=mqtt://broker.emqx.io:1883 npm run 
 ```
 
 종료는 터미널에서 `Ctrl+C`를 사용한다.
+
+## 원격 조정 패널
+시뮬레이터 실행 시 로컬 제어 패널 서버가 함께 실행된다.
+
+기본 URL:
+```text
+http://localhost:3000
+```
+
+패널 자동 오픈을 끄는 예:
+```bash
+MQTT_UNIQ_USER_ID=student-01 CONTROL_PANEL_AUTO_OPEN=false npm run dev
+```
+
+패널 서버를 완전히 끄는 예:
+```bash
+MQTT_UNIQ_USER_ID=student-01 CONTROL_PANEL_ENABLED=false npm run dev
+```
+
+패널에서는 컨베이어벨트 `power`, 컨베이어벨트 `overheatMode`, 에어컨 `power`를 조정할 수 있다. 패널 조작은 새로운 MQTT 토픽을 만들지 않고 기존 시뮬레이터 내부 제어 로직을 호출한 뒤 actuator status를 즉시 발행한다.
 
 ## 테스트 명령
 ```bash

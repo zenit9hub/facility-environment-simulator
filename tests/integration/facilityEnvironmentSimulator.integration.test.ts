@@ -123,6 +123,59 @@ describe('FacilityEnvironmentSimulator', () => {
     expect(airconStatus?.payload).toEqual({ power: 'on' });
   });
 
+  it('applies control panel actions through the same immediate status publish path', async () => {
+    const topics = buildTopics(TEST_UNIQ_USER_ID);
+    const log = vi.fn();
+    await simulator.stop();
+
+    simulator = new FacilityEnvironmentSimulator({
+      brokerUrl: mqttHarness.brokerUrl,
+      uniqUserId: TEST_UNIQ_USER_ID,
+      log
+    });
+
+    await simulator.connect();
+
+    const observer = await mqttHarness.createClient('observer-control-panel-status');
+    const received: CapturedMessage<PublishedPayload>[] = [];
+
+    await mqttHarness.subscribeJson(
+      observer,
+      [topics.conveyorStatusTopic, topics.airconStatusTopic],
+      received
+    );
+
+    await simulator.applyConveyorControl({
+      power: true,
+      overheatMode: true,
+      reason: 'control-panel',
+      source: 'control-panel'
+    });
+
+    await simulator.applyAirconControl({
+      power: true,
+      reason: 'control-panel',
+      source: 'control-panel'
+    });
+
+    await waitForMessageCount(received, 2);
+
+    expect(received.find((message) => message.topic === topics.conveyorStatusTopic)?.payload).toEqual({
+      power: 'on',
+      overheatMode: 'on'
+    });
+    expect(received.find((message) => message.topic === topics.airconStatusTopic)?.payload).toEqual({
+      power: 'on'
+    });
+    expect(log).toHaveBeenCalledWith(
+      '[simulator] control panel action. target=conveyor-belt power=on overheatMode=on'
+    );
+    expect(log).toHaveBeenCalledWith(
+      '[simulator] control panel action. target=aircon power=on'
+    );
+    expect(simulator.getStateSnapshot().lastPublishedAt).not.toBeNull();
+  });
+
   it('logs periodic publishes, control messages, and immediate status publishes', async () => {
     const topics = buildTopics(TEST_UNIQ_USER_ID);
     const log = vi.fn();

@@ -10,7 +10,7 @@
         "id": "sheet5_group_input",
         "type": "group",
         "z": "sheet5_tab",
-        "name": "입력 박스 | zenit 토픽을 수강생 ID로 수정",
+        "name": "입력 박스 | zenit 토픽을 사용자 ID로 수정",
         "style": {
             "label": true,
             "fill": "#FFF3B0",
