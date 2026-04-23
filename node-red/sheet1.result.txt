@@ -1,0 +1,36 @@
+{
+  "userId": "zenit",
+  "roomId": "room-01",
+  "observedAt": "2026-04-22T02:23:08.129Z",
+  "snapshotMode": "fixed-interval-latest",
+  "latestUpdatedAt": "2026-04-22T02:23:03.014Z",
+  "lastSourceType": "vibration",
+  "completeness": "ready",
+  "received": {
+    "temperature": true,
+    "vibration": true,
+    "conveyorBeltStatus": true,
+    "airconStatus": true
+  },
+  "sensors": {
+    "temperature": {
+      "value": 28.4,
+      "updatedAt": "2026-04-22T02:23:03.013Z"
+    },
+    "vibration": {
+      "value": 1,
+      "updatedAt": "2026-04-22T02:23:03.014Z"
+    }
+  },
+  "actuators": {
+    "conveyorBelt": {
+      "power": "on",
+      "overheatMode": "off",
+      "updatedAt": "2026-04-22T02:23:03.012Z"
+    },
+    "aircon": {
+      "power": "off",
+      "updatedAt": "2026-04-22T02:23:03.013Z"
+    }
+  }
+}
